@@ -45,7 +45,7 @@ fi
 
 cd "$REPOSITORY_PATH"
 
-# Check if it's a git repository, initialize if needed
+# THE KEY FIX: Check if it's a git repository, initialize if needed
 if [ ! -d ".git" ]; then
     print_warning "No .git directory found, initializing git repository"
     git init
@@ -53,16 +53,11 @@ if [ ! -d ".git" ]; then
     # Set safe directory for git operations
     git config --global --add safe.directory "$(pwd)"
     
-    # Create initial commit if no commits exist
-    if ! git rev-parse HEAD >/dev/null 2>&1; then
-        print_info "Creating initial commit"
+    # Check if we're in a checkout situation (files exist but no .git)
+    if [ "$(ls -A . 2>/dev/null)" ]; then
+        print_info "Found existing files, creating initial commit"
         git add .
-        if git diff --cached --quiet; then
-            print_warning "No files to commit for initial commit"
-            echo "# Initial commit" > .gitkeep
-            git add .gitkeep
-        fi
-        git commit -m "Initial commit" || true
+        git commit -m "Initial commit from existing files" || true
     fi
 else
     # Set safe directory for existing repo
