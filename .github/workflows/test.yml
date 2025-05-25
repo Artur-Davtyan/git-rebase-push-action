@@ -1,0 +1,236 @@
+name: Test Action
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-basic:
+    name: Test Basic Functionality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test repository
+        run: |
+          mkdir test-repo
+          cd test-repo
+          git init
+          git config user.name "Test User"
+          git config user.email "test@example.com"
+          echo "# Test Repository" > README.md
+          echo "version: 1.0.0" > version.txt
+          git add .
+          git commit -m "Initial commit"
+
+      - name: Make changes to test
+        run: |
+          cd test-repo
+          echo "version: 1.1.0" > version.txt
+          echo "Updated content" >> README.md
+
+      - name: Test the action - basic push
+        uses: ./
+        with:
+          repository_path: test-repo
+          commit_message: "Test commit from action"
+          user_name: "Test Bot"
+          user_email: "test-bot@example.com"
+
+      - name: Verify test results
+        run: |
+          cd test-repo
+          echo "✅ Last commit message:"
+          git log -1 --pretty=format:"%s"
+          echo ""
+          echo "✅ Last commit author:"
+          git log -1 --pretty=format:"%an <%ae>"
+          echo ""
+          echo "✅ Repository status:"
+          git status
+
+  test-no-changes:
+    name: Test No Changes Scenario
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test repository with no changes
+        run: |
+          mkdir test-repo
+          cd test-repo
+          git init
+          git config user.name "Test User"
+          git config user.email "test@example.com"
+          echo "# Test Repository" > README.md
+          git add .
+          git commit -m "Initial commit"
+
+      - name: Test the action - no changes
+        id: test-no-changes
+        uses: ./
+        with:
+          repository_path: test-repo
+          commit_message: "This should not create a commit"
+
+      - name: Verify no changes result
+        run: |
+          echo "Result: ${{ steps.test-no-changes.outputs.result }}"
+          echo "Attempts: ${{ steps.test-no-changes.outputs.attempts }}"
+          if [ "${{ steps.test-no-changes.outputs.result }}" != "no-changes" ]; then
+            echo "❌ Expected 'no-changes' but got '${{ steps.test-no-changes.outputs.result }}'"
+            exit 1
+          fi
+          echo "✅ No changes test passed"
+
+  test-yq-command:
+    name: Test YQ Command
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test repository with YAML
+        run: |
+          mkdir test-repo
+          cd test-repo
+          git init
+          git config user.name "Test User"
+          git config user.email "test@example.com"
+          cat > values.yaml << EOF
+          image:
+            tag: "v1.0.0"
+            repository: "myapp"
+          replicas: 3
+          EOF
+          git add .
+          git commit -m "Initial commit"
+
+      - name: Update YAML file
+        run: |
+          cd test-repo
+          yq eval '.image.tag = "v2.0.0"' -i values.yaml
+
+      - name: Test the action with YQ command
+        uses: ./
+        with:
+          repository_path: test-repo
+          commit_message: "Update image tag to v2.0.0"
+          yq_command: 'yq eval ".image.tag = \"v2.0.0\"" -i values.yaml'
+
+      - name: Verify YQ command worked
+        run: |
+          cd test-repo
+          echo "✅ Updated values.yaml:"
+          cat values.yaml
+          if ! grep -q "v2.0.0" values.yaml; then
+            echo "❌ YQ command failed - tag not updated"
+            exit 1
+          fi
+          echo "✅ YQ command test passed"
+
+  test-custom-branch:
+    name: Test Custom Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test repository with custom branch
+        run: |
+          mkdir test-repo
+          cd test-repo
+          git init
+          git config user.name "Test User"
+          git config user.email "test@example.com"
+          echo "# Test Repository" > README.md
+          git add .
+          git commit -m "Initial commit"
+          git checkout -b develop
+          echo "develop branch content" > develop.txt
+
+      - name: Test the action with custom branch
+        uses: ./
+        with:
+          repository_path: test-repo
+          commit_message: "Commit to develop branch"
+          branch: develop
+
+      - name: Verify custom branch
+        run: |
+          cd test-repo
+          current_branch=$(git branch --show-current)
+          echo "✅ Current branch: $current_branch"
+          if [ "$current_branch" != "develop" ]; then
+            echo "❌ Expected 'develop' branch but on '$current_branch'"
+            exit 1
+          fi
+          echo "✅ Custom branch test passed"
+
+  test-max-retries:
+    name: Test Max Retries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test repository
+        run: |
+          mkdir test-repo
+          cd test-repo
+          git init
+          git config user.name "Test User"
+          git config user.email "test@example.com"
+          echo "# Test Repository" > README.md
+          git add .
+          git commit -m "Initial commit"
+          echo "test content" > test.txt
+
+      - name: Test the action with max retries
+        id: test-retries
+        uses: ./
+        with:
+          repository_path: test-repo
+          commit_message: "Test max retries"
+          max_retries: 1
+          retry_delay: 1
+
+      - name: Verify max retries behavior
+        run: |
+          echo "Result: ${{ steps.test-retries.outputs.result }}"
+          echo "Attempts: ${{ steps.test-retries.outputs.attempts }}"
+          echo "✅ Max retries test completed"
+
+  lint-dockerfile:
+    name: Lint Dockerfile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+  test-docker-build:
+    name: Test Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t git-rebase-push-action:test .
+
+      - name: Test Docker image
+        run: |
+          docker run --rm git-rebase-push-action:test yq --version
+          docker run --rm git-rebase-push-action:test git --version
+          echo "✅ Docker image build and basic tools test passed"

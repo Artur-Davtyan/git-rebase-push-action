@@ -1,0 +1,56 @@
+name: 'Git Rebase Push'
+description: 'Commit and push with automatic rebase retry loop - perfect for GitOps workflows'
+author: 'Artur Davtyan'
+branding:
+  icon: 'git-commit'
+  color: 'green'
+
+inputs:
+  repository_path:
+    description: 'Path to the git repository'
+    required: true
+    default: '.'
+  
+  commit_message:
+    description: 'Commit message'
+    required: true
+  
+  branch:
+    description: 'Branch to push to'
+    required: false
+    default: 'main'
+  
+  user_name:
+    description: 'Git user name for commits'
+    required: false
+    default: 'GitHub Actions Bot'
+  
+  user_email:
+    description: 'Git user email for commits'
+    required: false
+    default: 'github-actions-bot@github.com'
+  
+  yq_command:
+    description: 'YQ command to re-apply changes after rebase conflicts'
+    required: false
+  
+  retry_delay:
+    description: 'Delay between retries in seconds'
+    required: false
+    default: '2'
+  
+  max_retries:
+    description: 'Maximum number of retries (0 for infinite)'
+    required: false
+    default: '0'
+
+outputs:
+  result:
+    description: 'Result of the push operation (success, no-changes, rebase-failed, max-retries-exceeded)'
+  
+  attempts:
+    description: 'Number of attempts made'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
