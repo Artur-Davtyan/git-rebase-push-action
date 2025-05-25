@@ -46,10 +46,11 @@ jobs:
       - name: Build and test Docker image
         run: |
           docker build -t test-action .
-          echo "Testing yq in container:"
-          docker run --rm test-action yq --version
-          echo "Testing git in container:"  
-          docker run --rm test-action git --version
-          echo "Testing bash in container:"
-          docker run --rm test-action bash --version
-          echo "✅ Docker image works correctly"
+          echo "Testing individual tools in container:"
+          echo "✅ YQ Version:"
+          docker run --rm --entrypoint="" test-action yq --version
+          echo "✅ Git Version:"  
+          docker run --rm --entrypoint="" test-action git --version
+          echo "✅ Bash Version:"
+          docker run --rm --entrypoint="" test-action bash --version
+          echo "✅ All Docker tools work correctly"
