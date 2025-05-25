@@ -45,10 +45,28 @@ fi
 
 cd "$REPOSITORY_PATH"
 
-# Verify it's a git repository
+# Check if it's a git repository, initialize if needed
 if [ ! -d ".git" ]; then
-    print_error "Directory '$REPOSITORY_PATH' is not a git repository"
-    exit 1
+    print_warning "No .git directory found, initializing git repository"
+    git init
+    
+    # Set safe directory for git operations
+    git config --global --add safe.directory "$(pwd)"
+    
+    # Create initial commit if no commits exist
+    if ! git rev-parse HEAD >/dev/null 2>&1; then
+        print_info "Creating initial commit"
+        git add .
+        if git diff --cached --quiet; then
+            print_warning "No files to commit for initial commit"
+            echo "# Initial commit" > .gitkeep
+            git add .gitkeep
+        fi
+        git commit -m "Initial commit" || true
+    fi
+else
+    # Set safe directory for existing repo
+    git config --global --add safe.directory "$(pwd)"
 fi
 
 # Configure git

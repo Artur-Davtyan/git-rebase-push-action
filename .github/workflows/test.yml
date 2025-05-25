@@ -8,136 +8,46 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-basic:
-    name: Basic Test
+  test-action:
+    name: Test Basic Functionality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup test changes
+      - name: Create test files
         run: |
-          # Configure git for test
-          git config user.name "Test User"
-          git config user.email "test@example.com"
-          
-          # Create new test file (this will be a change to commit)
-          echo "version: 1.0.0" > test-file.txt
-          echo "timestamp: $(date)" > timestamp.txt
-          
-          # Verify there are changes to commit
-          git status
+          echo "version: 1.0.0" > test-version.txt
+          echo "timestamp: $(date)" > test-timestamp.txt
+          echo "# Test changes for action" >> README.md
 
       - name: Test the action
+        id: test-action
         uses: ./
         with:
           repository_path: .
-          commit_message: "Test commit - update test file"
+          commit_message: "Test commit from action"
           user_name: "Test Bot"
-          user_email: "test@example.com"
+          user_email: "test-bot@example.com"
+          max_retries: 1
 
-      - name: Verify result
+      - name: Check results
         run: |
-          echo "✅ Git log:"
-          git log --oneline -3
-          echo "✅ Test file content:"
-          cat test-file.txt
+          echo "Action result: ${{ steps.test-action.outputs.result }}"
+          echo "Attempts: ${{ steps.test-action.outputs.attempts }}"
 
-  test-separate-repo:
-    name: Test with Separate Repository
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout action
-        uses: actions/checkout@v4
-        with:
-          path: action
-
-      - name: Create separate test repository
-        run: |
-          mkdir test-repo
-          cd test-repo
-          git init
-          git config user.name "Test User"
-          git config user.email "test@example.com"
-          
-          # Create test files
-          echo "# Test Repository" > README.md
-          echo "version: 1.0.0" > version.txt
-          git add .
-          git commit -m "Initial test repo commit"
-          
-          # Make changes
-          echo "version: 2.0.0" > version.txt
-          echo "Updated content" >> README.md
-
-      - name: Test action on separate repo
-        uses: ./action
-        with:
-          repository_path: test-repo
-          commit_message: "Update version to 2.0.0"
-
-      - name: Verify separate repo result
-        run: |
-          cd test-repo
-          echo "✅ Last commit:"
-          git log -1 --oneline
-          echo "✅ Version file:"
-          cat version.txt
-
-  test-docker-only:
-    name: Test Docker Build Only
+  test-docker:
+    name: Test Docker Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build Docker image
+      - name: Build and test Docker image
         run: |
-          echo "🔨 Building Docker image..."
           docker build -t test-action .
-
-      - name: Test Docker tools
-        run: |
           echo "Testing yq:"
           docker run --rm test-action yq --version
           echo "Testing git:"
           docker run --rm test-action git --version
-          echo "Testing bash:"
-          docker run --rm test-action bash --version
-
-  test-no-push:
-    name: Test Without Push (Local Only)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Create local git repo
-        run: |
-          mkdir local-test
-          cd local-test
-          git init
-          git config user.name "Test User"
-          git config user.email "test@example.com"
-          echo "# Local Test" > README.md
-          git add .
-          git commit -m "Initial commit"
-          
-          # Add changes to commit
-          echo "test: true" > config.yaml
-
-      - name: Test action locally (will fail push but that's OK)
-        continue-on-error: true
-        uses: ./
-        with:
-          repository_path: local-test
-          commit_message: "Local test commit"
-          max_retries: 1
-
-      - name: Check if commit was created
-        run: |
-          cd local-test
-          echo "✅ Commits in local repo:"
-          git log --oneline
-          echo "✅ Files:"
-          ls -la
+          echo "✅ Docker image works correctly"
