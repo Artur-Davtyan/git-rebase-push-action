@@ -17,9 +17,9 @@ jobs:
 
       - name: Create isolated test repository
         run: |
-          # Create completely separate test directory
-          mkdir /tmp/test-repo
-          cd /tmp/test-repo
+          # Create test directory in workspace (accessible to Docker)
+          mkdir test-repo
+          cd test-repo
           
           # Initialize fresh git repo (not connected to GitHub)
           git init
@@ -39,7 +39,7 @@ jobs:
       - name: Test action on local repository
         uses: ./
         with:
-          repository_path: /tmp/test-repo
+          repository_path: test-repo
           commit_message: "Update version to 2.0.0"
           user_name: "Action Bot"
           user_email: "action@test.com"
@@ -47,7 +47,7 @@ jobs:
 
       - name: Verify local test results
         run: |
-          cd /tmp/test-repo
+          cd test-repo
           echo "✅ Git log:"
           git log --oneline
           echo "✅ Files created:"
@@ -87,8 +87,8 @@ jobs:
 
       - name: Create test with YQ operations
         run: |
-          mkdir /tmp/yq-test
-          cd /tmp/yq-test
+          mkdir yq-test
+          cd yq-test
           git init
           git config user.name "Test User"
           git config user.email "test@example.com"
@@ -111,14 +111,14 @@ jobs:
       - name: Test action with YQ command
         uses: ./
         with:
-          repository_path: /tmp/yq-test
+          repository_path: yq-test
           commit_message: "Update image tag to v2.0.0"
           yq_command: 'yq eval ".app.image.tag = \"v2.0.0\"" -i values.yaml'
           max_retries: 0
 
       - name: Verify YQ test results
         run: |
-          cd /tmp/yq-test
+          cd yq-test
           echo "✅ YAML content after action:"
           cat values.yaml
           if grep -q "v2.0.0" values.yaml; then
