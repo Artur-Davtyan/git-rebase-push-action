@@ -4,7 +4,7 @@
 [![Test Action](https://github.com/Artur-Davtyan/git-rebase-push-action/actions/workflows/test.yml/badge.svg)](https://github.com/Artur-Davtyan/git-rebase-push-action/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A powerful GitHub Action that handles concurrent git commits with automatic rebase retry loop. Perfect for GitOps workflows where multiple processes update the same repository simultaneously.
+A powerful GitHub Action that handles concurrent git commits with automatic rebase retry loop. **Perfect for GitOps workflows** where multiple processes update the same repository simultaneously.
 
 ## 🌟 Features
 
@@ -13,21 +13,23 @@ A powerful GitHub Action that handles concurrent git commits with automatic reba
 - ✅ **Smart conflict resolution** with custom YQ commands
 - ✅ **Preserves concurrent commits** from other processes
 - ✅ **GitOps optimized** for image tag updates
+- ✅ **Handles missing git directories** automatically
 - ✅ **Zero configuration** - works out of the box
 - ✅ **Detailed logging** with colored output
 - ✅ **Error handling** with meaningful exit codes
 
-## 🚀 Quick Start
+## 🚀 Quick Start - GitOps Example
 
 ```yaml
-name: Deploy
+name: Deploy to GitOps
 on: [push]
 
 jobs:
-  deploy:
+  update-gitops:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout GitOps repository
+        uses: actions/checkout@v4
         with:
           repository: your-org/gitops
           token: ${{ secrets.GITOPS_TOKEN }}
@@ -38,7 +40,7 @@ jobs:
         with:
           cmd: yq eval '.image.tag = "${{ github.sha }}"' -i gitops/apps/myapp/values.yaml
       
-      - name: Push changes
+      - name: Commit and push with automatic retry
         uses: Artur-Davtyan/git-rebase-push-action@v1
         with:
           repository_path: gitops
@@ -66,23 +68,23 @@ jobs:
 | `result` | Operation result | `success`, `no-changes`, `rebase-failed`, `max-retries-exceeded`, `fetch-failed`, `yq-command-failed` |
 | `attempts` | Number of push attempts | `0`, `1`, `2`, ... |
 
-## 🎯 Perfect for GitOps
+## 🎯 Perfect for GitOps - Real World Example
 
 ### The Problem
 Multiple applications trying to update the same GitOps repository simultaneously:
 
 ```
-App A: commits → pushes ✅
-App B: commits → push FAILS ❌ (branch moved forward)
-App C: commits → push FAILS ❌ (branch moved forward)
+App A: commits image tag update → pushes ✅
+App B: commits image tag update → push FAILS ❌ (branch moved forward)
+App C: commits image tag update → push FAILS ❌ (branch moved forward)
 ```
 
 ### The Solution
 This action automatically rebases and retries:
 
 ```yaml
-# All apps can run this concurrently - no conflicts!
-- name: Update image tag
+# In your application's CI/CD pipeline:
+- name: Update GitOps repository  
   uses: Artur-Davtyan/git-rebase-push-action@v1
   with:
     repository_path: gitops
@@ -91,6 +93,35 @@ This action automatically rebases and retries:
 ```
 
 **Result**: All apps get their image tags updated without conflicts! 🎉
+
+### Real GitOps Workflow
+```yaml
+# Replace stefanzweifel/git-auto-commit-action with this:
+Update-tag:
+  runs-on: ubuntu-latest
+  needs: [build-push, security-scan]
+  steps:
+    - name: Checkout GitOps repository
+      uses: actions/checkout@v4
+      with:
+        repository: your-org/gitops
+        ssh-key: ${{ secrets.GITOPS_GITHUB_SSH }}
+        path: gitops
+
+    - name: Change image tag in GitOps repository  
+      uses: mikefarah/yq@master
+      with:
+        cmd: yq eval '.image.tag = "${{ env.TARGET_IMAGE_TAG }}"' -i gitops/apps/${{ env.APP_NAME }}/env-values/${{ env.ENV }}/values.yaml
+
+    - name: Commit and push with rebase retry
+      uses: Artur-Davtyan/git-rebase-push-action@v1
+      with:
+        repository_path: gitops
+        commit_message: "Update ${{ env.APP_NAME }} to ${{ env.TARGET_IMAGE_TAG }} in ${{ env.ENV }}"
+        yq_command: 'yq eval ".image.tag = \"${{ env.TARGET_IMAGE_TAG }}\"" -i apps/${{ env.APP_NAME }}/env-values/${{ env.ENV }}/values.yaml'
+        user_name: "GitHub Actions Bot"
+        user_email: "github-actions-bot@github.com"
+```
 
 ## 💡 Advanced Usage Examples
 
@@ -235,12 +266,59 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🏷️ Changelog
 
+### v1.0.1
+- 🔧 **Fix**: Handle missing git directories in GitOps workflows
+- ✨ **New**: Automatic git repository initialization  
+- 🎯 **Improvement**: Better handling of checkout scenarios
+- 📝 **Docs**: Updated with real GitOps examples
+
 ### v1.0.0
-- Initial release
-- Basic rebase retry functionality
-- YQ command support
-- Configurable retry settings
-- Comprehensive error handling
+- 🎉 **Initial release**
+- ✅ Basic rebase retry functionality
+- ✅ YQ command support  
+- ✅ Configurable retry settings
+- ✅ Comprehensive error handling
+
+## 🆚 vs Other Actions
+
+| Feature | This Action | stefanzweifel/git-auto-commit | Standard Git |
+|---------|-------------|-------------------------------|--------------|
+| **Concurrent commits** | ✅ **Handles automatically** | ❌ Fails | ❌ Fails |
+| **Automatic rebase** | ✅ **Yes** | ❌ No | ❌ Manual |
+| **Retry on conflicts** | ✅ **Infinite/Configurable** | ❌ None | ❌ Manual |
+| **GitOps optimized** | ✅ **YQ integration** | ❌ Basic | ❌ No |
+| **Conflict resolution** | ✅ **Smart** | ❌ Basic | ❌ Manual |
+
+## 🤝 Migration from Other Actions
+
+### From stefanzweifel/git-auto-commit-action
+```yaml
+# BEFORE:
+- uses: stefanzweifel/git-auto-commit-action@v5
+  with:
+    commit_message: "Update files"
+    repository: .
+
+# AFTER:  
+- uses: Artur-Davtyan/git-rebase-push-action@v1
+  with:
+    repository_path: .
+    commit_message: "Update files"
+```
+
+### From Manual Git Commands
+```yaml
+# BEFORE:
+- run: |
+    git add .
+    git commit -m "Update"
+    git push  # ❌ Fails on conflicts
+
+# AFTER:
+- uses: Artur-Davtyan/git-rebase-push-action@v1
+  with:
+    commit_message: "Update"  # ✅ Handles conflicts automatically
+```
 
 ---
 
