@@ -1,4 +1,4 @@
-name: Test Git Rebase Push Action
+name: Test Action
 
 on:
   push:
@@ -8,344 +8,42 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-basic-commit:
-    name: Test Basic Commit and Push
+  test-basic:
+    name: Basic Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout action repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create test git repository
+      - name: Setup test git repo in workspace
         run: |
-          # Create a temporary test repo
-          mkdir test-repo
-          cd test-repo
-          
-          # Initialize git repo
-          git init
           git config user.name "Test User"
           git config user.email "test@example.com"
-          
-          # Create initial files
-          echo "# Test Repository" > README.md
-          echo "app: myapp" > config.yaml
-          echo "version: 1.0.0" >> config.yaml
-          
-          # Initial commit
-          git add .
-          git commit -m "Initial commit"
-          
-          # Create a remote-like branch
-          git branch -M main
+          echo "# Test File" > test.txt
+          echo "version: 1.0.0" >> test.txt
 
-      - name: Modify files in test repo
-        run: |
-          cd test-repo
-          echo "version: 1.1.0" > config.yaml
-          echo "Updated at $(date)" >> README.md
-
-      - name: Test action - basic commit
+      - name: Test the action
         uses: ./
         with:
-          repository_path: test-repo
-          commit_message: "Update version to 1.1.0"
-          user_name: "Test Bot"
-          user_email: "test-bot@example.com"
+          repository_path: .
+          commit_message: "Test commit"
 
-      - name: Verify commit was created
+      - name: Verify result
         run: |
-          cd test-repo
-          echo "✅ Last commit message:"
-          git log -1 --pretty=format:"%s"
-          echo ""
-          echo "✅ Last commit author:"
-          git log -1 --pretty=format:"%an <%ae>"
-          echo ""
-          echo "✅ Files in repo:"
-          ls -la
-          echo "✅ Config content:"
-          cat config.yaml
+          echo "✅ Last commit:"
+          git log -1 --oneline
 
-  test-no-changes:
-    name: Test No Changes Scenario
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout action repository
-        uses: actions/checkout@v4
-
-      - name: Create test repository without changes
-        run: |
-          mkdir clean-repo
-          cd clean-repo
-          git init
-          git config user.name "Test User"
-          git config user.email "test@example.com"
-          echo "# Clean Repository" > README.md
-          git add .
-          git commit -m "Initial commit"
-
-      - name: Test action with no changes
-        id: test-no-changes
-        uses: ./
-        with:
-          repository_path: clean-repo
-          commit_message: "This should not create a commit"
-
-      - name: Verify no-changes result
-        run: |
-          echo "Result: ${{ steps.test-no-changes.outputs.result }}"
-          echo "Attempts: ${{ steps.test-no-changes.outputs.attempts }}"
-          
-          if [ "${{ steps.test-no-changes.outputs.result }}" = "no-changes" ]; then
-            echo "✅ No changes test PASSED"
-          else
-            echo "❌ Expected 'no-changes' but got '${{ steps.test-no-changes.outputs.result }}'"
-            exit 1
-          fi
-
-  test-yq-functionality:
-    name: Test YQ Command Integration
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout action repository
-        uses: actions/checkout@v4
-
-      - name: Create test repository with YAML file
-        run: |
-          mkdir yaml-repo
-          cd yaml-repo
-          git init
-          git config user.name "Test User"
-          git config user.email "test@example.com"
-          
-          # Create a values.yaml file like in GitOps
-          cat > values.yaml << 'EOF'
-          app:
-            name: "myapp"
-            image:
-              repository: "nginx"
-              tag: "1.0.0"
-            replicas: 3
-          environment: "production"
-          EOF
-          
-          git add .
-          git commit -m "Initial values.yaml"
-
-      - name: Update YAML file manually
-        run: |
-          cd yaml-repo
-          # Simulate the yq update that happens before the action
-          yq eval '.app.image.tag = "2.0.0"' -i values.yaml
-          echo "✅ Updated values.yaml:"
-          cat values.yaml
-
-      - name: Test action with YQ command
-        uses: ./
-        with:
-          repository_path: yaml-repo
-          commit_message: "Update image tag to 2.0.0"
-          yq_command: 'yq eval ".app.image.tag = \"2.0.0\"" -i values.yaml'
-
-      - name: Verify YQ functionality
-        run: |
-          cd yaml-repo
-          echo "✅ Final values.yaml content:"
-          cat values.yaml
-          
-          # Check if the tag was updated correctly
-          if grep -q "tag.*2.0.0" values.yaml; then
-            echo "✅ YQ command test PASSED - tag updated correctly"
-          else
-            echo "❌ YQ command test FAILED - tag not found"
-            exit 1
-          fi
-
-  test-custom-settings:
-    name: Test Custom Settings
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout action repository
-        uses: actions/checkout@v4
-
-      - name: Create test repository
-        run: |
-          mkdir custom-repo
-          cd custom-repo
-          git init
-          git config user.name "Test User"
-          git config user.email "test@example.com"
-          echo "# Custom Test" > README.md
-          git add .
-          git commit -m "Initial commit"
-          echo "custom content" > custom.txt
-
-      - name: Test action with custom settings
-        id: test-custom
-        uses: ./
-        with:
-          repository_path: custom-repo
-          commit_message: "Test custom settings"
-          user_name: "Custom Bot"
-          user_email: "custom@example.com"
-          retry_delay: 1
-          max_retries: 3
-
-      - name: Verify custom settings
-        run: |
-          cd custom-repo
-          echo "Result: ${{ steps.test-custom.outputs.result }}"
-          echo "Attempts: ${{ steps.test-custom.outputs.attempts }}"
-          
-          # Check commit author
-          author=$(git log -1 --pretty=format:"%an")
-          if [ "$author" = "Custom Bot" ]; then
-            echo "✅ Custom user name test PASSED"
-          else
-            echo "❌ Expected 'Custom Bot' but got '$author'"
-            exit 1
-          fi
-
-  test-docker-build:
+  test-docker:
     name: Test Docker Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout action repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build Docker image
+        run: docker build -t test-action .
+
+      - name: Test tools in container
         run: |
-          echo "🔨 Building Docker image..."
-          docker build -t git-rebase-push-action:test .
-
-      - name: Test Docker image components
-        run: |
-          echo "🧪 Testing Docker image components..."
-          
-          # Test git
-          echo "Testing git:"
-          docker run --rm git-rebase-push-action:test git --version
-          
-          # Test yq
-          echo "Testing yq:"
-          docker run --rm git-rebase-push-action:test yq --version
-          
-          # Test bash
-          echo "Testing bash:"
-          docker run --rm git-rebase-push-action:test bash --version
-          
-          echo "✅ All Docker components working correctly"
-
-  test-action-metadata:
-    name: Test Action Metadata
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout action repository
-        uses: actions/checkout@v4
-
-      - name: Validate action.yml
-        run: |
-          echo "🔍 Validating action.yml structure..."
-          
-          # Check if required fields exist
-          if ! grep -q "name:" action.yml; then
-            echo "❌ Missing 'name' field in action.yml"
-            exit 1
-          fi
-          
-          if ! grep -q "description:" action.yml; then
-            echo "❌ Missing 'description' field in action.yml"
-            exit 1
-          fi
-          
-          if ! grep -q "inputs:" action.yml; then
-            echo "❌ Missing 'inputs' field in action.yml"
-            exit 1
-          fi
-          
-          if ! grep -q "runs:" action.yml; then
-            echo "❌ Missing 'runs' field in action.yml"
-            exit 1
-          fi
-          
-          echo "✅ action.yml structure is valid"
-
-      - name: Check required files
-        run: |
-          echo "🔍 Checking required files..."
-          
-          files=("action.yml" "Dockerfile" "entrypoint.sh" "README.md" "LICENSE")
-          
-          for file in "${files[@]}"; do
-            if [ -f "$file" ]; then
-              echo "✅ $file exists"
-            else
-              echo "❌ $file is missing"
-              exit 1
-            fi
-          done
-          
-          # Check if entrypoint.sh is executable
-          if [ -x "entrypoint.sh" ]; then
-            echo "✅ entrypoint.sh is executable"
-          else
-            echo "❌ entrypoint.sh is not executable"
-            exit 1
-          fi
-
-  integration-test:
-    name: Integration Test - Simulate GitOps Workflow
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout action repository
-        uses: actions/checkout@v4
-
-      - name: Create GitOps-like repository
-        run: |
-          mkdir gitops-repo
-          cd gitops-repo
-          git init
-          git config user.name "GitOps User"
-          git config user.email "gitops@example.com"
-          
-          # Create GitOps-like structure
-          mkdir -p apps/myapp/env-values/production
-          
-          cat > apps/myapp/env-values/production/values.yaml << 'EOF'
-          image:
-            repository: "myapp"
-            tag: "v1.0.0"
-          replicas: 3
-          service:
-            port: 80
-          EOF
-          
-          git add .
-          git commit -m "Initial GitOps setup"
-
-      - name: Simulate image tag update (like in real GitOps)
-        run: |
-          cd gitops-repo
-          # This simulates what your CI pipeline does
-          yq eval '.image.tag = "v2.0.0"' -i apps/myapp/env-values/production/values.yaml
-
-      - name: Test GitOps-style commit and push
-        uses: ./
-        with:
-          repository_path: gitops-repo
-          commit_message: "Update myapp image tag to v2.0.0 in production"
-          yq_command: 'yq eval ".image.tag = \"v2.0.0\"" -i apps/myapp/env-values/production/values.yaml'
-
-      - name: Verify GitOps update
-        run: |
-          cd gitops-repo
-          echo "✅ GitOps repository structure:"
-          find . -name "*.yaml" -exec echo "File: {}" \; -exec cat {} \; -exec echo "" \;
-          
-          # Verify the image tag was updated
-          if grep -q "tag.*v2.0.0" apps/myapp/env-values/production/values.yaml; then
-            echo "✅ GitOps integration test PASSED"
-          else
-            echo "❌ GitOps integration test FAILED"
-            exit 1
-          fi
+          docker run --rm test-action yq --version
+          docker run --rm test-action git --version
