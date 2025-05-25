@@ -112,8 +112,9 @@ jobs:
           git add .
           git commit -m "Initial values"
           
-          # Modify YAML (simulating pre-action change)
+          # Modify YAML and stage the changes
           yq eval '.app.image.tag = "v2.0.0"' -i values.yaml
+          git add values.yaml  # ← Stage the modified file
 
       - name: Test action with YQ command
         uses: ./
@@ -197,8 +198,9 @@ jobs:
           git add .
           git commit -m "Initial develop commit"
           
-          # Make changes
+          # Make changes and stage them
           echo "feature: new-feature" > feature.txt
+          git add feature.txt  # ← This was missing!
           echo "✅ Files before action:"
           ls -la
           echo "✅ Git status before action:"
