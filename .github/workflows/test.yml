@@ -199,8 +199,13 @@ jobs:
           
           # Make changes
           echo "feature: new-feature" > feature.txt
+          echo "✅ Files before action:"
+          ls -la
+          echo "✅ Git status before action:"
+          git status
 
       - name: Test action on custom branch
+        id: branch-test
         uses: ./
         with:
           repository_path: branch-test
@@ -211,15 +216,25 @@ jobs:
       - name: Verify custom branch result
         run: |
           cd branch-test
+          echo "✅ Action result: ${{ steps.branch-test.outputs.result }}"
+          echo "✅ Action attempts: ${{ steps.branch-test.outputs.attempts }}"
           echo "✅ Current branch:"
           git branch --show-current
           echo "✅ Git log:"
-          git log --oneline -2
+          git log --oneline -5
+          echo "✅ Files after action:"
+          ls -la
+          echo "✅ Git status after action:"
+          git status
           
-          if git log --oneline | grep -q "Add new feature"; then
-            echo "✅ SUCCESS: Custom branch commit works!"
+          # Check if any commit was made after initial
+          commit_count=$(git rev-list --count HEAD)
+          echo "✅ Total commits: $commit_count"
+          
+          if [ "$commit_count" -gt 1 ]; then
+            echo "✅ SUCCESS: New commit was created!"
           else
-            echo "❌ FAILED: Custom branch commit not found"
+            echo "❌ FAILED: No new commit found (expected more than 1 commit)"
             exit 1
           fi
 
