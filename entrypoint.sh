@@ -99,6 +99,16 @@ attempt=1
 
 print_info "Starting push with rebase retry loop..."
 
+# Check if max_retries is 0 (skip push)
+if [ $MAX_RETRIES -eq 0 ]; then
+    print_info "Max retries set to 0 - skipping push operations"
+    print_success "🎉 Git operations completed successfully (commit only mode)"
+    print_info "Final commit SHA: $(git rev-parse HEAD)"
+    echo "result=success" >> $GITHUB_OUTPUT
+    echo "attempts=0" >> $GITHUB_OUTPUT
+    exit 0
+fi
+
 # Push with rebase retry loop
 while true; do
     print_info "Attempting to push... (attempt $attempt)"
