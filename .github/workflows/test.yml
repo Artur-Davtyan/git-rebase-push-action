@@ -15,20 +15,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Initialize git repo in workspace
+      - name: Setup test changes
         run: |
-          # Initialize the workspace as a git repo
-          git init
+          # Configure git for test
           git config user.name "Test User"
           git config user.email "test@example.com"
           
-          # Add all existing files (action files)
-          git add .
-          git commit -m "Initial commit with action files"
-          
-          # Create a test file to modify
+          # Create new test file (this will be a change to commit)
           echo "version: 1.0.0" > test-file.txt
-          echo "# Test content" >> README.md
+          echo "timestamp: $(date)" > timestamp.txt
+          
+          # Verify there are changes to commit
+          git status
 
       - name: Test the action
         uses: ./
